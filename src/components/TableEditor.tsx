@@ -5,30 +5,9 @@ import { RichTextEditor } from './RichTextEditor';
 import { PasteTableImport } from './PasteTableImport';
 import type { TableSection, ColumnType, DetailMode } from '../types';
 import { Plus, Trash2, ChevronDown, ChevronRight, Columns, Palette, ClipboardPaste } from 'lucide-react';
+import { getStatusColor, getStatusTextColor } from '../utils/statusColors';
 
 const STATUS_VALUES = ['Pass', 'Fail', 'In Progress', 'Blocked', 'N/A'] as const;
-
-function getStatusColor(value: string): string {
-  const v = value.toLowerCase().trim();
-  if (v === 'pass' || v === 'passed') return '#dcfce7';
-  if (v === 'fail' || v === 'failed') return '#fee2e2';
-  if (v === 'in progress' || v === 'in-progress') return '#fef9c3';
-  if (v === 'blocked') return '#fecaca';
-  if (v === 'n/a' || v === 'na') return '#f3f4f6';
-  if (v === 'warning') return '#fef9c3';
-  return '';
-}
-
-function getStatusTextColor(value: string): string {
-  const v = value.toLowerCase().trim();
-  if (v === 'pass' || v === 'passed') return '#166534';
-  if (v === 'fail' || v === 'failed') return '#991b1b';
-  if (v === 'in progress' || v === 'in-progress') return '#854d0e';
-  if (v === 'blocked') return '#991b1b';
-  if (v === 'n/a' || v === 'na') return '#4b5563';
-  if (v === 'warning') return '#854d0e';
-  return '';
-}
 
 const CELL_COLORS = [
   { label: 'None', value: '' },
