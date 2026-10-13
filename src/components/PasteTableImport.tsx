@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import { useReportStore } from '../store/reportStore';
 import { v4 as uuidv4 } from 'uuid';
 import type { ColumnGroup, TableRow, TableCell } from '../types';
@@ -263,9 +264,10 @@ export function PasteTableImport({ reportId, sectionId, onClose }: Props) {
     const textData = e.clipboardData.getData('text/plain');
 
     if (htmlData) {
-      setPasteContent(htmlData);
+      const sanitizedHtml = DOMPurify.sanitize(htmlData);
+      setPasteContent(sanitizedHtml);
       if (pasteRef.current) {
-        pasteRef.current.innerHTML = htmlData;
+        pasteRef.current.innerHTML = sanitizedHtml;
       }
     } else if (textData) {
       setPasteContent(textData);
