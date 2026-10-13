@@ -8,26 +8,45 @@ import { Plus, Trash2, ChevronDown, ChevronRight, Columns, Palette, ClipboardPas
 
 const STATUS_VALUES = ['Pass', 'Fail', 'In Progress', 'Blocked', 'N/A'] as const;
 
+const statusColorCache = new Map<string, string>();
+const statusTextColorCache = new Map<string, string>();
+
 function getStatusColor(value: string): string {
+  const cached = statusColorCache.get(value);
+  if (cached !== undefined) return cached;
+
   const v = value.toLowerCase().trim();
-  if (v === 'pass' || v === 'passed') return '#dcfce7';
-  if (v === 'fail' || v === 'failed') return '#fee2e2';
-  if (v === 'in progress' || v === 'in-progress') return '#fef9c3';
-  if (v === 'blocked') return '#fecaca';
-  if (v === 'n/a' || v === 'na') return '#f3f4f6';
-  if (v === 'warning') return '#fef9c3';
-  return '';
+  let result = '';
+  if (v === 'pass' || v === 'passed') result = '#dcfce7';
+  else if (v === 'fail' || v === 'failed') result = '#fee2e2';
+  else if (v === 'in progress' || v === 'in-progress') result = '#fef9c3';
+  else if (v === 'blocked') result = '#fecaca';
+  else if (v === 'n/a' || v === 'na') result = '#f3f4f6';
+  else if (v === 'warning') result = '#fef9c3';
+
+  if (statusColorCache.size < 500) {
+    statusColorCache.set(value, result);
+  }
+  return result;
 }
 
 function getStatusTextColor(value: string): string {
+  const cached = statusTextColorCache.get(value);
+  if (cached !== undefined) return cached;
+
   const v = value.toLowerCase().trim();
-  if (v === 'pass' || v === 'passed') return '#166534';
-  if (v === 'fail' || v === 'failed') return '#991b1b';
-  if (v === 'in progress' || v === 'in-progress') return '#854d0e';
-  if (v === 'blocked') return '#991b1b';
-  if (v === 'n/a' || v === 'na') return '#4b5563';
-  if (v === 'warning') return '#854d0e';
-  return '';
+  let result = '';
+  if (v === 'pass' || v === 'passed') result = '#166534';
+  else if (v === 'fail' || v === 'failed') result = '#991b1b';
+  else if (v === 'in progress' || v === 'in-progress') result = '#854d0e';
+  else if (v === 'blocked') result = '#991b1b';
+  else if (v === 'n/a' || v === 'na') result = '#4b5563';
+  else if (v === 'warning') result = '#854d0e';
+
+  if (statusTextColorCache.size < 500) {
+    statusTextColorCache.set(value, result);
+  }
+  return result;
 }
 
 const CELL_COLORS = [
