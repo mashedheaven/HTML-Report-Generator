@@ -9,7 +9,7 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
-function getStatusBgColor(value: string): string {
+export function getStatusBgColor(value: string): string {
   const v = value.toLowerCase().trim();
   if (v === 'pass' || v === 'passed') return '#dcfce7';
   if (v === 'fail' || v === 'failed') return '#fee2e2';
