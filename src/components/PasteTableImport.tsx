@@ -3,6 +3,7 @@ import { useReportStore } from '../store/reportStore';
 import { v4 as uuidv4 } from 'uuid';
 import type { ColumnGroup, TableRow, TableCell } from '../types';
 import { ClipboardPaste, X, FileJson } from 'lucide-react';
+import { getStatusColor } from '../utils/statusColors';
 
 interface Props {
   reportId: string;
@@ -101,11 +102,9 @@ function parseHtmlTable(html: string): { groups: ColumnGroup[]; rows: TableRow[]
           bgColor = bgAttr;
         }
         // Detect status-like values and auto-color
-        const textContent = td.textContent?.trim().toLowerCase() || '';
+        const textContent = td.textContent?.trim() || '';
         if (!bgColor) {
-          if (textContent === 'pass' || textContent === 'passed') bgColor = '#dcfce7';
-          else if (textContent === 'fail' || textContent === 'failed') bgColor = '#fee2e2';
-          else if (textContent === 'in progress') bgColor = '#fef9c3';
+          bgColor = getStatusColor(textContent);
         }
 
         rowCells[allColIds[idx]] = { content, bgColor, details: '' };
