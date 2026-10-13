@@ -10,7 +10,7 @@ interface Props {
   onClose: () => void;
 }
 
-function parseHtmlTable(html: string): { groups: ColumnGroup[]; rows: TableRow[] } | null {
+export function parseHtmlTable(html: string): { groups: ColumnGroup[]; rows: TableRow[] } | null {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
   const table = doc.querySelector('table');
@@ -123,7 +123,7 @@ function parseHtmlTable(html: string): { groups: ColumnGroup[]; rows: TableRow[]
   return { groups, rows };
 }
 
-function parsePlainTextTable(text: string): { groups: ColumnGroup[]; rows: TableRow[] } | null {
+export function parsePlainTextTable(text: string): { groups: ColumnGroup[]; rows: TableRow[] } | null {
   const lines = text.split('\n').filter(l => l.trim().length > 0);
   if (lines.length < 2) return null;
 
@@ -176,7 +176,7 @@ function parsePlainTextTable(text: string): { groups: ColumnGroup[]; rows: Table
   return { groups, rows };
 }
 
-function rgbToHex(rgb: string): string {
+export function rgbToHex(rgb: string): string {
   const match = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
   if (!match) return '';
   const r = parseInt(match[1]);
@@ -212,7 +212,7 @@ interface JsonImportData {
   rows: Array<Array<string>>;
 }
 
-function parseJsonImport(json: string): { groups: ColumnGroup[]; rows: TableRow[] } | null {
+export function parseJsonImport(json: string): { groups: ColumnGroup[]; rows: TableRow[] } | null {
   let data: JsonImportData;
   try {
     data = JSON.parse(json);
