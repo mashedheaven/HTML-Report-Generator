@@ -9,26 +9,41 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
+const statusBgColorCache = new Map<string, string>();
+const statusTextColorCache = new Map<string, string>();
+
 function getStatusBgColor(value: string): string {
+  const cached = statusBgColorCache.get(value);
+  if (cached !== undefined) return cached;
+
   const v = value.toLowerCase().trim();
-  if (v === 'pass' || v === 'passed') return '#dcfce7';
-  if (v === 'fail' || v === 'failed') return '#fee2e2';
-  if (v === 'in progress' || v === 'in-progress') return '#fef9c3';
-  if (v === 'blocked') return '#fecaca';
-  if (v === 'n/a' || v === 'na') return '#f3f4f6';
-  if (v === 'warning') return '#fef9c3';
-  return '';
+  let color = '';
+  if (v === 'pass' || v === 'passed') color = '#dcfce7';
+  else if (v === 'fail' || v === 'failed') color = '#fee2e2';
+  else if (v === 'in progress' || v === 'in-progress') color = '#fef9c3';
+  else if (v === 'blocked') color = '#fecaca';
+  else if (v === 'n/a' || v === 'na') color = '#f3f4f6';
+  else if (v === 'warning') color = '#fef9c3';
+
+  statusBgColorCache.set(value, color);
+  return color;
 }
 
 function getStatusTextColor(value: string): string {
+  const cached = statusTextColorCache.get(value);
+  if (cached !== undefined) return cached;
+
   const v = value.toLowerCase().trim();
-  if (v === 'pass' || v === 'passed') return '#166534';
-  if (v === 'fail' || v === 'failed') return '#991b1b';
-  if (v === 'in progress' || v === 'in-progress') return '#854d0e';
-  if (v === 'blocked') return '#991b1b';
-  if (v === 'n/a' || v === 'na') return '#4b5563';
-  if (v === 'warning') return '#854d0e';
-  return '';
+  let color = '';
+  if (v === 'pass' || v === 'passed') color = '#166534';
+  else if (v === 'fail' || v === 'failed') color = '#991b1b';
+  else if (v === 'in progress' || v === 'in-progress') color = '#854d0e';
+  else if (v === 'blocked') color = '#991b1b';
+  else if (v === 'n/a' || v === 'na') color = '#4b5563';
+  else if (v === 'warning') color = '#854d0e';
+
+  statusTextColorCache.set(value, color);
+  return color;
 }
 
 function generateStyles(): string {
