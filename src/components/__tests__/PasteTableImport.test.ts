@@ -60,7 +60,10 @@ describe('parseHtmlTable', () => {
 
     expect(result!.rows[0].cells[col0Id].content).toBe('Task 1');
     expect(result!.rows[0].cells[col1Id].content).toBe('Passed');
-    expect(result!.rows[0].cells[col1Id].bgColor).toBe('#dcfce7'); // auto-detected passed
+    // Status-like columns become 'status' columns; colour follows the value instead of being baked in.
+    expect(result!.groups[1].columns[0].type).toBe('status');
+    expect(result!.groups[0].columns[0].type).toBe('text');
+    expect(result!.rows[0].cells[col1Id].bgColor).toBe('');
   });
 
   it('parses table without explicit <th> using first <tr> as header', () => {
@@ -86,7 +89,8 @@ describe('parseHtmlTable', () => {
     expect(result!.rows.length).toBe(1);
     const col1Id = result!.groups[1].columns[0].id;
     expect(result!.rows[0].cells[col1Id].content).toBe('Fail');
-    expect(result!.rows[0].cells[col1Id].bgColor).toBe('#fee2e2'); // auto-detected fail
+    expect(result!.groups[1].columns[0].type).toBe('status');
+    expect(result!.rows[0].cells[col1Id].bgColor).toBe('');
   });
 
   it('parses multi-row header table with colspan', () => {
@@ -124,7 +128,8 @@ describe('parseHtmlTable', () => {
     expect(result!.rows.length).toBe(1);
     const round1StatusColId = result!.groups[1].columns[1].id;
     expect(result!.rows[0].cells[round1StatusColId].content).toBe('In Progress');
-    expect(result!.rows[0].cells[round1StatusColId].bgColor).toBe('#fef9c3'); // auto-detected in progress
+    expect(result!.groups[1].columns[1].type).toBe('status');
+    expect(result!.rows[0].cells[round1StatusColId].bgColor).toBe('');
   });
 
   it('detects background color from inline style or bgcolor attribute', () => {

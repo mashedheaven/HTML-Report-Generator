@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import DOMPurify from 'dompurify';
-import { Bold, Italic, Underline, Strikethrough, Superscript, Subscript, Link } from 'lucide-react';
+import { Bold, Italic, Underline, Strikethrough, Superscript, Subscript, Link, List, ListOrdered, RemoveFormatting } from 'lucide-react';
 
 interface RichTextEditorProps {
   value: string;
@@ -142,6 +142,9 @@ export function RichTextEditor({ value, onChange, placeholder, className = '', m
     { command: 'strikethrough', icon: Strikethrough, title: 'Strikethrough' },
     { command: 'superscript', icon: Superscript, title: 'Superscript' },
     { command: 'subscript', icon: Subscript, title: 'Subscript' },
+    { command: 'insertUnorderedList', icon: List, title: 'Bulleted list' },
+    { command: 'insertOrderedList', icon: ListOrdered, title: 'Numbered list' },
+    { command: 'removeFormat', icon: RemoveFormatting, title: 'Clear formatting' },
   ];
 
   if (minimal) {

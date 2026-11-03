@@ -198,7 +198,7 @@ describe('generateHtmlReport', () => {
 
     const html = generateHtmlReport(report);
 
-    expect(html).toContain('background:#ff0000;position:relative');
+    expect(html).toContain('class="has-bg" style="background:#ff0000"');
     expect(html).toContain('<b>Auth Module</b>');
   });
 
@@ -271,8 +271,10 @@ describe('generateHtmlReport', () => {
 
     const html = generateHtmlReport(report);
 
-    expect(html).toContain('onclick="toggleAccordion(\'row-acc-1\')"');
-    expect(html).toContain('id="detail-row-acc-1"');
+    expect(html).toContain('data-toggle="detail-s1-r1"');
+    expect(html).toContain('aria-expanded="false" aria-controls="detail-s1-r1"');
+    expect(html).toContain('<tr class="detail-row" id="detail-s1-r1">');
+    expect(html).not.toContain('onclick=');
     expect(html).toContain('<p>Row wide details text</p>');
     expect(html).toContain('<strong>Component:</strong> Cell specific notes');
     expect(html).toContain('<span class="cell-detail-dot"></span>');
@@ -313,15 +315,19 @@ describe('generateHtmlReport', () => {
 
     const html = generateHtmlReport(report);
 
-    expect(html).toContain('onclick="openModal(\'row-mod-1\')"');
-    expect(html).toContain('id="modal-row-mod-1"');
+    expect(html).toContain('data-modal="modal-s1-r1"');
+    expect(html).toContain('id="modal-s1-r1"');
     expect(html).toContain('class="modal-overlay"');
-    expect(html).toContain('onclick="closeModal(\'row-mod-1\')"');
+    expect(html).toContain('role="dialog" aria-modal="true"');
+    expect(html).toContain('<h3 id="modal-s1-r1-title">Backend API</h3>');
+    expect(html).toContain('class="modal-close"');
+    // Modal details are also rendered as a print-only row so printed reports keep them.
+    expect(html).toContain('<tr class="detail-row print-only" id="detail-s1-r1">');
     expect(html).toContain('<p>Modal row note</p>');
     expect(html).toContain('<strong>Component:</strong> Modal cell note');
   });
 
-  it('should render rows without details with empty button column', () => {
+  it('should omit the expand-button column when no row has details', () => {
     const report: Report = {
       id: 'report-11',
       title: 'No Details Report',
@@ -356,7 +362,8 @@ describe('generateHtmlReport', () => {
 
     const html = generateHtmlReport(report);
 
-    expect(html).toContain('<td></td>');
+    expect(html).not.toContain('class="btn-col"');
+    expect(html).toContain('<td>Value</td>');
     expect(html).not.toContain('id="detail-row-no-detail"');
     expect(html).not.toContain('id="modal-row-no-detail"');
     expect(html).not.toContain('<span class="cell-detail-dot"></span>');
@@ -395,6 +402,6 @@ describe('generateHtmlReport', () => {
 
     const html = generateHtmlReport(report);
 
-    expect(html).toContain('<td style="position:relative"></td>');
+    expect(html).toContain('<tr class="data-row" data-status=""><td></td></tr>');
   });
 });
