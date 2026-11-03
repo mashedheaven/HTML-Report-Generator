@@ -39,12 +39,55 @@ interface ReportState {
 
 const STORAGE_KEY = 'report-generator-data';
 
-function saveToLocalStorage(reports: Report[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
-  } catch {
-    // localStorage full or unavailable
+let pendingReportsToSave: Report[] | null = null;
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let idleCallbackId: number | null = null;
+
+export function flushSaveToLocalStorage() {
+  if (saveTimer !== null) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
   }
+  if (typeof window !== 'undefined' && idleCallbackId !== null && 'cancelIdleCallback' in window) {
+    window.cancelIdleCallback(idleCallbackId);
+    idleCallbackId = null;
+  }
+  if (pendingReportsToSave !== null) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingReportsToSave));
+    } catch {
+      // localStorage full or unavailable
+    }
+    pendingReportsToSave = null;
+  }
+}
+
+function performSave() {
+  saveTimer = null;
+  idleCallbackId = null;
+  if (pendingReportsToSave !== null) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingReportsToSave));
+    } catch {
+      // localStorage full or unavailable
+    }
+    pendingReportsToSave = null;
+  }
+}
+
+function saveToLocalStorage(reports: Report[]) {
+  pendingReportsToSave = reports;
+  if (saveTimer === null && idleCallbackId === null) {
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleCallbackId = window.requestIdleCallback(() => performSave(), { timeout: 1000 });
+    } else {
+      saveTimer = setTimeout(performSave, 300);
+    }
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', flushSaveToLocalStorage);
 }
 
 function migrateReport(report: Report): Report {
