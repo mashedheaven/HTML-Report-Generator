@@ -64,16 +64,19 @@ function migrateReport(report: Report): Report {
       }
       if (!ts.columnGroups) ts.columnGroups = [];
       // Migrate old row cells (string → TableCell object)
-      ts.rows = ts.rows.map(row => ({
-        ...row,
-        cells: Object.fromEntries(
-          Object.entries(row.cells).map(([k, v]) => {
-            if (typeof v === 'string') return [k, { content: v, bgColor: '', details: '' }];
+      ts.rows = ts.rows.map(row => {
+        const newCells: Record<string, TableCell> = {};
+        for (const k in row.cells) {
+          const v = row.cells[k];
+          if (typeof v === 'string') {
+            newCells[k] = { content: v, bgColor: '', details: '' };
+          } else {
             const cell = v as { content: string; bgColor: string; details?: string };
-            return [k, { content: cell.content, bgColor: cell.bgColor, details: cell.details || '' }];
-          })
-        ),
-      }));
+            newCells[k] = { content: cell.content, bgColor: cell.bgColor, details: cell.details || '' };
+          }
+        }
+        return { ...row, cells: newCells };
+      });
       return ts;
     }),
   };
