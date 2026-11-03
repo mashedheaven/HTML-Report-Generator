@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { Bold, Italic, Underline, Strikethrough, Superscript, Subscript, Link } from 'lucide-react';
+import DOMPurify from 'dompurify';
+import { Bold, Italic, Underline, Strikethrough, Superscript, Subscript, Link, List, ListOrdered, RemoveFormatting } from 'lucide-react';
 
 interface RichTextEditorProps {
   value: string;
@@ -18,8 +19,9 @@ export function RichTextEditor({ value, onChange, placeholder, className = '', m
 
   useEffect(() => {
     if (editorRef.current && !isInternalChange.current) {
-      if (editorRef.current.innerHTML !== value) {
-        editorRef.current.innerHTML = value;
+      const sanitized = DOMPurify.sanitize(value);
+      if (editorRef.current.innerHTML !== sanitized) {
+        editorRef.current.innerHTML = sanitized;
       }
     }
     isInternalChange.current = false;
@@ -29,14 +31,16 @@ export function RichTextEditor({ value, onChange, placeholder, className = '', m
     document.execCommand(command, false, val);
     if (editorRef.current) {
       isInternalChange.current = true;
-      onChange(editorRef.current.innerHTML);
+      const sanitized = DOMPurify.sanitize(editorRef.current.innerHTML);
+      onChange(sanitized);
     }
   }, [onChange]);
 
   const handleInput = () => {
     if (editorRef.current) {
       isInternalChange.current = true;
-      onChange(editorRef.current.innerHTML);
+      const sanitized = DOMPurify.sanitize(editorRef.current.innerHTML);
+      onChange(sanitized);
     }
   };
 
@@ -99,10 +103,12 @@ export function RichTextEditor({ value, onChange, placeholder, className = '', m
     const htmlData = e.clipboardData.getData('text/html');
     if (htmlData) {
       e.preventDefault();
-      document.execCommand('insertHTML', false, htmlData);
+      const sanitizedHtml = DOMPurify.sanitize(htmlData);
+      document.execCommand('insertHTML', false, sanitizedHtml);
       if (editorRef.current) {
         isInternalChange.current = true;
-        onChange(editorRef.current.innerHTML);
+        const sanitized = DOMPurify.sanitize(editorRef.current.innerHTML);
+        onChange(sanitized);
       }
     }
   };
@@ -136,6 +142,9 @@ export function RichTextEditor({ value, onChange, placeholder, className = '', m
     { command: 'strikethrough', icon: Strikethrough, title: 'Strikethrough' },
     { command: 'superscript', icon: Superscript, title: 'Superscript' },
     { command: 'subscript', icon: Subscript, title: 'Subscript' },
+    { command: 'insertUnorderedList', icon: List, title: 'Bulleted list' },
+    { command: 'insertOrderedList', icon: ListOrdered, title: 'Numbered list' },
+    { command: 'removeFormat', icon: RemoveFormatting, title: 'Clear formatting' },
   ];
 
   if (minimal) {

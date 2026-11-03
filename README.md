@@ -12,32 +12,38 @@ This app was built to make that workflow effortless: define your table structure
 
 ## Features
 
-### Table Editor
-- **Column Groups & Sub-columns** — Two-level header structure (e.g., "Round 1" → "Greenfield" / "Sunspear")
-- **Column Types** — `text` (rich HTML) or `status` (auto-colored Pass/Fail/In Progress/Blocked/N/A)
-- **Cell-level Coloring** — Manual background color per cell via palette picker
-- **Per-cell Expandable Details** — Attach hidden detail notes to individual cells, revealed on expand
-- **Row-level Details** — Accordion or modal expand for row-wide notes
-- **Split/Merged Rows** — Supports complex structures where test suite names span multiple rows
+### The exported report (single self-contained `.html`, works offline)
+- **Summary dashboard** — pass rate, counts per status, a stacked status bar, a per-table breakdown, and an "Issues referenced" list built from every issue key in the report
+- **Sticky toolbar** — filter rows by text (press `/`), filter by status chips, expand/collapse all details, dark-mode toggle, print / save as PDF
+- **Table of contents** with fail badges per section (reports with 3+ sections)
+- **Merged cells** — blank leading cells merge into the cell above (rowspan), so grouped test suites read like the original spreadsheet
+- **Issue links** — set a tracker base URL and keys like `DUNE-311046` become links everywhere
+- **Smart statuses** — "Fail by HPXAPPS-56215", "Pass with defect X", "Blocked", "Not run"… are classified by their leading words and coloured accordingly
+- **Expandable details** — inline accordion or pop-up modal per row, plus per-cell notes; cells with notes are clickable
+- **Accessible & robust** — keyboard support, ARIA attributes, focus handling, no inline event handlers, all rich content sanitised (DOMPurify)
+- **Print-ready** — toolbar hidden, every detail (including pop-up details) printed, colours preserved
+- **Light / dark / auto theme**, compact mode, custom accent colour, responsive down to phone width
 
-### Rich Text Editing
-- Bold, Italic, Underline, Strikethrough, Superscript, Subscript
-- Hyperlink insertion (Ctrl+K)
-- HTML paste preservation (formatting from Word/web pages retained)
+### Editor
+- **Column groups & sub-columns** with two-level headers; reorder groups
+- **Column types** — `text` (rich HTML) or `status` (free-text with suggestions, auto-coloured and counted)
+- **Rows** — insert, duplicate, move up/down, delete; row-level and cell-level details
+- **Sections** — tables and rich-text notes; reorder, duplicate, collapse
+- **Report settings** — author, report date, overall status (On track / At risk / Off track / Complete), accent colour, issue tracker URL, dashboard/TOC toggles, theme
+- **Edit / Split / Preview** views — live preview keeps its scroll position, with desktop and phone widths and "open in new tab"
+- **Duplicate report** — start next week's report from this week's in one click
+- **Undo / Redo** (Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z) — typing is grouped into single steps; native undo still works inside text fields
+- **Search & sort** the report list, with a pass-rate bar per report
+- **Sample report** to explore every feature
 
 ### Import
-- **Paste Table** — Paste from Excel, Word, OneNote, or web pages; auto-detects structure and colors
-- **JSON Import** — Define complex multi-level table structures via JSON for advanced layouts (split rows, nested groups, typed columns)
+- **Paste Table** — from Excel, Word, OneNote or web pages; handles merged cells (rowspan/colspan), keeps cell colours, and auto-detects status columns
+- **JSON Import** — complex multi-level tables, including row details and merge settings (see below)
+- **Report JSON** — import one or more full report backups
 
 ### Export
-- **Self-contained HTML** — Single `.html` file with inline CSS + vanilla JS, no external dependencies; includes accordion/modal expand, noscript fallback, print styles
-- **JSON** — Full report data for backup/transfer between instances
-
-### Other
-- **Undo** (Ctrl+Z) — 50-level undo history across all operations
-- **Auto-save** — localStorage persistence with automatic schema migration
-- **Note Sections** — Free-form rich text sections alongside tables
-- **Live Preview** — Iframe preview of the generated HTML while editing
+- **Self-contained HTML** — inline CSS + vanilla JS, no external requests
+- **JSON** — full report data for backup/transfer between instances
 
 ## Tech Stack
 
@@ -66,6 +72,12 @@ npm run build
 npm run preview
 ```
 
+## Tests
+
+```bash
+npm test
+```
+
 ## Project Structure
 
 ```
@@ -78,14 +90,20 @@ src/
 │   ├── NoteEditor.tsx         # Rich text note sections
 │   ├── RichTextEditor.tsx     # contentEditable editor with toolbar
 │   ├── PasteTableImport.tsx   # Paste & JSON table import panel
-│   ├── HtmlPreview.tsx        # Live iframe preview
+│   ├── HtmlPreview.tsx        # Live iframe preview (desktop/phone widths)
+│   ├── ReportSettingsPanel.tsx# Author, date, overall status, theme, issue links
 │   └── ConfirmDialog.tsx      # Custom modal confirmation dialog
+├── data/
+│   └── sampleReport.ts        # Sample weekly QA report
 ├── store/
 │   └── reportStore.ts         # Zustand store, CRUD, undo, localStorage
 ├── types/
 │   └── report.ts              # TypeScript interfaces
 └── utils/
     ├── htmlGenerator.ts       # Self-contained HTML export generator
+    ├── statusColors.ts        # Status classification & colours
+    ├── reportStats.ts         # Status counts for dashboards
+    ├── richText.ts            # Sanitising, escaping, issue-key linking
     └── exportImport.ts        # File download/upload utilities
 ```
 
@@ -101,10 +119,13 @@ For complex tables (multi-level headers, split rows), use the JSON tab in the im
   ],
   "rows": [
     ["Memory Monitoring", "PrintHPx", "Windows", "Pass"],
-    ["", "Scan", "NA", ""]
-  ]
+    ["", "Scan", "NA", ""],
+    { "cells": ["", "Copy", "NA", "Fail by DUNE-311995"], "details": "<p>Duplicate of DUNE-311046</p>", "mode": "modal" }
+  ],
+  "mergeColumns": 2
 }
 ```
 
 - `columns` entries can be plain strings (defaults to text type) or objects with `label` and `type`
-- Empty first cells in rows create visual row-spanning (the value "belongs" to the row above)
+- Rows can be arrays of values, or objects with `cells`, optional `details` (HTML) and `mode` (`accordion` | `modal`); a cell can also be `{ "content", "details", "bgColor" }`
+- `mergeColumns: N` merges blank cells in the first N columns into the cell above (rowspan), so empty first cells "belong" to the row above

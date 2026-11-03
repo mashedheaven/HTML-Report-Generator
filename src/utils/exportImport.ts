@@ -44,3 +44,17 @@ export function importJson(file: File): Promise<Report> {
     reader.readAsText(file);
   });
 }
+
+/** File name for an exported report, e.g. "Weekly_Report.html". */
+export function reportFileName(report: Pick<Report, 'title'>, ext: 'html' | 'json'): string {
+  const base = (report.title || 'report').replace(/[^a-z0-9]/gi, '_');
+  return `${base}.${ext}`;
+}
+
+/** Opens generated HTML in a new browser tab. */
+export function openHtmlInNewTab(html: string) {
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank', 'noopener');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}

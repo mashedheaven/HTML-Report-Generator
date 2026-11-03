@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react';
+import DOMPurify from 'dompurify';
 import { useReportStore } from '../store/reportStore';
 import { v4 as uuidv4 } from 'uuid';
 import type { ColumnGroup, TableRow, TableCell } from '../types';
 import { ClipboardPaste, X, FileJson } from 'lucide-react';
+import { classifyStatus, STATUS_STYLES } from '../utils/statusColors';
 
 interface Props {
   reportId: string;
@@ -10,7 +12,9 @@ interface Props {
   onClose: () => void;
 }
 
-function parseHtmlTable(html: string): { groups: ColumnGroup[]; rows: TableRow[] } | null {
+export interface ParsedTable { groups: ColumnGroup[]; rows: TableRow[]; mergeColumns?: number }
+
+export function parseHtmlTable(html: string): ParsedTable | null {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
   const table = doc.querySelector('table');
@@ -61,7 +65,12 @@ function parseHtmlTable(html: string): { groups: ColumnGroup[]; rows: TableRow[]
     let subIdx = 0;
     groups = groupCells.map(cell => {
       const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+      const rowspan = parseInt(cell.getAttribute('rowspan') || '1', 10);
       const groupLabel = cell.textContent?.trim() || '';
+      // A header cell spanning both header rows is a standalone column.
+      if (rowspan >= 2) {
+        return { id: uuidv4(), label: groupLabel, columns: [{ id: uuidv4(), label: groupLabel, type: 'text' as const }] };
+      }
       const columns = [];
       for (let i = 0; i < colspan && subIdx < subCells.length; i++) {
         columns.push({
@@ -82,34 +91,40 @@ function parseHtmlTable(html: string): { groups: ColumnGroup[]; rows: TableRow[]
   // Flatten column IDs for mapping data
   const allColIds = groups.flatMap(g => g.columns.map(c => c.id));
 
-  // Build data rows
-  const rows: TableRow[] = dataRows.map(tr => {
-    const cells = Array.from(tr.querySelectorAll('td, th'));
+  // Build data rows on a grid so rowspan/colspan (merged cells from Excel/Word/OneNote)
+  // keep every value under the right column. Cells covered by a span become blank,
+  // which the exporter can merge back via "Merge blank cells".
+  const occupied: boolean[][] = [];
+  let maxLeadingSpanCol = 0;
+  const rows: TableRow[] = dataRows.map((tr, rIdx) => {
+    const cells = Array.from(tr.querySelectorAll(':scope > td, :scope > th'));
     const rowCells: Record<string, TableCell> = {};
+    occupied[rIdx] = occupied[rIdx] || [];
+    let col = 0;
 
-    cells.forEach((td, idx) => {
-      if (idx < allColIds.length) {
+    cells.forEach((td) => {
+      while (occupied[rIdx][col]) col++;
+      const colspan = Math.max(1, parseInt(td.getAttribute('colspan') || '1', 10) || 1);
+      const rowspan = Math.max(1, Math.min(dataRows.length - rIdx, parseInt(td.getAttribute('rowspan') || '1', 10) || 1));
+      for (let dr = 0; dr < rowspan; dr++) {
+        occupied[rIdx + dr] = occupied[rIdx + dr] || [];
+        for (let dc = 0; dc < colspan; dc++) occupied[rIdx + dr][col + dc] = true;
+      }
+      if (rowspan > 1 && col === maxLeadingSpanCol) maxLeadingSpanCol = col + 1;
+
+      if (col < allColIds.length) {
         const content = td.innerHTML?.trim() || '';
         const bgStyle = (td as HTMLElement).style?.backgroundColor || '';
         const bgAttr = (td as HTMLElement).getAttribute('bgcolor') || '';
         let bgColor = '';
-
-        // Try to detect background color from inline styles
         if (bgStyle) {
           bgColor = rgbToHex(bgStyle) || bgStyle;
         } else if (bgAttr) {
           bgColor = bgAttr;
         }
-        // Detect status-like values and auto-color
-        const textContent = td.textContent?.trim().toLowerCase() || '';
-        if (!bgColor) {
-          if (textContent === 'pass' || textContent === 'passed') bgColor = '#dcfce7';
-          else if (textContent === 'fail' || textContent === 'failed') bgColor = '#fee2e2';
-          else if (textContent === 'in progress') bgColor = '#fef9c3';
-        }
-
-        rowCells[allColIds[idx]] = { content, bgColor, details: '' };
+        rowCells[allColIds[col]] = { content, bgColor, details: '' };
       }
+      col += colspan;
     });
 
     return {
@@ -120,10 +135,42 @@ function parseHtmlTable(html: string): { groups: ColumnGroup[]; rows: TableRow[]
     };
   });
 
-  return { groups, rows };
+  markStatusColumns(groups, rows);
+  return { groups, rows, mergeColumns: maxLeadingSpanCol };
 }
 
-function parsePlainTextTable(text: string): { groups: ColumnGroup[]; rows: TableRow[] } | null {
+/**
+ * Turns columns whose values are mostly statuses (Pass, Fail by X, Blocked…) into
+ * 'status' columns, so they are auto-coloured and counted in the summary.
+ * A pasted background that merely mirrors the status colour is dropped so the
+ * colour keeps following the value when it is edited later.
+ */
+export function markStatusColumns(groups: ColumnGroup[], rows: TableRow[]) {
+  for (const g of groups) {
+    for (const col of g.columns) {
+      const values = rows.map(r => r.cells[col.id]).filter(c => c && c.content.replace(/<[^>]*>/g, '').trim());
+      if (values.length === 0) continue;
+      const hits = values.filter(c => classifyStatus(c!.content.replace(/<[^>]*>/g, '').trim())).length;
+      if (hits / values.length < 0.6) continue;
+      col.type = 'status';
+      for (const r of rows) {
+        const c = r.cells[col.id];
+        if (!c) continue;
+        const text = c.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+        c.content = text;
+        const k = classifyStatus(text);
+        if (!c.bgColor || (k && isStatusLikeColor(c.bgColor))) c.bgColor = '';
+      }
+    }
+  }
+}
+
+function isStatusLikeColor(color: string): boolean {
+  const c = color.toLowerCase();
+  return Object.values(STATUS_STYLES).some(s => s.bg === c);
+}
+
+export function parsePlainTextTable(text: string): { groups: ColumnGroup[]; rows: TableRow[] } | null {
   const lines = text.split('\n').filter(l => l.trim().length > 0);
   if (lines.length < 2) return null;
 
@@ -173,10 +220,11 @@ function parsePlainTextTable(text: string): { groups: ColumnGroup[]; rows: Table
     };
   });
 
+  markStatusColumns(groups, rows);
   return { groups, rows };
 }
 
-function rgbToHex(rgb: string): string {
+export function rgbToHex(rgb: string): string {
   const match = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
   if (!match) return '';
   const r = parseInt(match[1]);
@@ -195,8 +243,11 @@ const JSON_EXAMPLE = `{
     ["Contention Duration", "HPx", "Windows", "Pass", "Windows", "Fail by HPXAPPS-56215"],
     ["", "", "iOS", "Pass", "Android", "Pass with Defect DUNE-311046"],
     ["Memory Monitoring", "PrintHPx", "Windows", "Pass", "Windows", "Pass"],
-    ["", "Scan", "NA", "", "Windows", "Pass"]
-  ]
+    ["", "Scan", "NA", "", "Windows", "Pass"],
+    { "cells": ["", "Copy", "NA", "", "Windows", "Fail by DUNE-311995"],
+      "details": "<p>Closed as duplicate of DUNE-311046</p>" }
+  ],
+  "mergeColumns": 2
 }`;
 
 interface JsonColumn {
@@ -209,10 +260,18 @@ interface JsonImportData {
     label: string;
     columns: Array<string | JsonColumn>;
   }>;
-  rows: Array<Array<string>>;
+  rows: Array<Array<string> | JsonRow>;
+  mergeColumns?: number;
 }
 
-function parseJsonImport(json: string): { groups: ColumnGroup[]; rows: TableRow[] } | null {
+/** Object form of a JSON row: `{ "cells": [...], "details": "<p>…</p>", "mode": "modal" }`. */
+interface JsonRow {
+  cells: Array<string | { content: string; details?: string; bgColor?: string }>;
+  details?: string;
+  mode?: 'accordion' | 'modal';
+}
+
+export function parseJsonImport(json: string): ParsedTable | null {
   let data: JsonImportData;
   try {
     data = JSON.parse(json);
@@ -236,18 +295,29 @@ function parseJsonImport(json: string): { groups: ColumnGroup[]; rows: TableRow[
 
   const allColIds = groups.flatMap(g => g.columns.map(c => c.id));
 
-  const rows: TableRow[] = (data.rows || []).map(rowData => {
+  const rows: TableRow[] = (Array.isArray(data.rows) ? data.rows : []).map(rowData => {
     const cells: Record<string, TableCell> = {};
-    const rowArr = Array.isArray(rowData) ? rowData : [];
+    const obj = !Array.isArray(rowData) && rowData && typeof rowData === 'object' ? (rowData as JsonRow) : null;
+    const rowArr: unknown[] = Array.isArray(rowData) ? rowData : obj && Array.isArray(obj.cells) ? obj.cells : [];
     rowArr.forEach((val, idx) => {
-      if (idx < allColIds.length) {
-        cells[allColIds[idx]] = { content: String(val || ''), bgColor: '', details: '' };
+      if (idx >= allColIds.length) return;
+      if (val && typeof val === 'object') {
+        const v = val as { content?: unknown; details?: unknown; bgColor?: unknown };
+        cells[allColIds[idx]] = { content: String(v.content ?? ''), bgColor: typeof v.bgColor === 'string' ? v.bgColor : '', details: typeof v.details === 'string' ? v.details : '' };
+      } else {
+        cells[allColIds[idx]] = { content: String(val ?? ''), bgColor: '', details: '' };
       }
     });
-    return { id: uuidv4(), cells, details: '', detailMode: 'accordion' as const };
+    return {
+      id: uuidv4(),
+      cells,
+      details: obj && typeof obj.details === 'string' ? obj.details : '',
+      detailMode: obj?.mode === 'modal' ? 'modal' as const : 'accordion' as const,
+    };
   });
 
-  return { groups, rows };
+  const mergeColumns = typeof data.mergeColumns === 'number' ? Math.max(0, Math.floor(data.mergeColumns)) : undefined;
+  return { groups, rows, mergeColumns };
 }
 
 export function PasteTableImport({ reportId, sectionId, onClose }: Props) {
@@ -263,9 +333,10 @@ export function PasteTableImport({ reportId, sectionId, onClose }: Props) {
     const textData = e.clipboardData.getData('text/plain');
 
     if (htmlData) {
-      setPasteContent(htmlData);
+      const sanitizedHtml = DOMPurify.sanitize(htmlData);
+      setPasteContent(sanitizedHtml);
       if (pasteRef.current) {
-        pasteRef.current.innerHTML = htmlData;
+        pasteRef.current.innerHTML = sanitizedHtml;
       }
     } else if (textData) {
       setPasteContent(textData);
@@ -276,20 +347,10 @@ export function PasteTableImport({ reportId, sectionId, onClose }: Props) {
     setError('');
   };
 
-  const applyResult = (result: { groups: ColumnGroup[]; rows: TableRow[] }) => {
+  const applyResult = (result: ParsedTable) => {
     const state = useReportStore.getState();
-    const reports = state.reports.map(r => {
-      if (r.id !== reportId) return r;
-      return {
-        ...r,
-        sections: r.sections.map(s => {
-          if (s.id !== sectionId || s.type !== 'table') return s;
-          return { ...s, columnGroups: result.groups, rows: result.rows };
-        }),
-        updatedAt: new Date().toISOString(),
-      };
-    });
-    state.loadReports(reports);
+    state.replaceTable(reportId, sectionId, result.groups, result.rows);
+    if (result.mergeColumns) state.updateTableOptions(reportId, sectionId, { mergeColumns: result.mergeColumns });
     onClose();
   };
 
